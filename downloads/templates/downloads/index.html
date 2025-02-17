@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Downloader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    <style>
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #f50057;
+            border-radius: 50%;
+            width: 36px;
+            height: 36px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+    <script>
+        $(document).ready(function() {
+            $('#fetch-details').on('click', function() {
+                var url = $('#id_url').val();
+                if (url) {
+                    $('#loading-spinner').show();
+                    $.getJSON("{% url 'get_video_details' %}", {url: url}, function(data) {
+                        $('#loading-spinner').hide();
+                        if (data.thumbnail_url) {
+                            $('#video-thumbnail').attr('src', data.thumbnail_url).show();
+                            $('#details-section').show();
+                            $('#url-field').val(url); // Set the URL field value
+                        } else {
+                            $('#video-thumbnail').hide();
+                            $('#details-section').hide();
+                        }
+                    }).fail(function() {
+                        $('#loading-spinner').hide();
+                        $('#video-thumbnail').hide();
+                        $('#details-section').hide();
+                    });
+                } else {
+                    $('#video-thumbnail').hide();
+                    $('#details-section').hide();
+                }
+            });
+
+            $('form').on('submit', function(event) {
+                event.preventDefault();
+                var form = $(this);
+                $.ajax({
+                    type: form.attr('method'),
+                    url: form.attr('action'),
+                    data: form.serialize(),
+                    success: function(response) {
+                        if (response.status === 'completed') {
+                            alert('Download completed!');
+                        } else {
+                            alert('Download failed: ' + response.error);
+                        }
+                    }
+                });
+            });
+
+            setInterval(function() {
+                $.getJSON("{% url 'download_video' %}", function(data) {
+                    $('#progress-bar').css('width', data.progress);
+                    $('#progress-bar').text(data.progress);
+                    $('#download-speed').text(data.speed);
+                });
+            }, 1000);
+        });
+    </script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white shadow-md rounded-lg p-6 w-full max-w-2xl">
+        <h2 class="text-2xl font-semibold text-center">YouTube Downloader</h2>
+        
+        <div class="mt-4 flex">
+            <input type="text" name="url" id="id_url" placeholder="Search or paste link here..." class="flex-1 p-2 border rounded-l-md outline-none">
+            <button id="fetch-details" class="bg-pink-500 text-white px-4 py-2 rounded-r-md">Start →</button>
+        </div>
+        
+        <div id="loading-spinner" class="mt-4 flex justify-center" style="display: none;">
+            <div class="spinner"></div>
+        </div>
+        
+        <div id="details-section" style="display: none;">
+            <div class="mt-6 bg-gray-50 p-4 rounded-md">
+                <div class="flex items-center gap-4">
+                    <img id="video-thumbnail" src="" alt="Video Thumbnail" class="w-24 h-16 rounded-md">
+                    <div>
+                        <h3 class="font-semibold">Video Preview</h3>
+                    </div>
+                </div>
+            </div>
+            
+            <form method="post" action="{% url 'download_video' %}" class="mt-6 bg-gray-50 p-4 rounded-md">
+                {% csrf_token %}
+                <input type="hidden" name="url" id="url-field"> <!-- Hidden URL field -->
+                <div class="flex items-center justify-between text-gray-700">
+                    <span class="font-medium">Resolution</span>
+                    <span class="font-medium">Action</span>
+                </div>
+                <div class="mt-2 flex items-center justify-between bg-white p-2 rounded-md shadow">
+                    <select name="resolution" id="resolution" class="form-control">
+                        <option value="144">144p</option>
+                        <option value="240">240p</option>
+                        <option value="360">360p</option>
+                        <option value="480">480p</option>
+                        <option value="720">720p</option>
+                        <option value="1080">1080p</option>
+                    </select>
+                    <button type="submit" class="bg-green-500 text-white px-4 py-2 rounded-md">Download</button>
+                </div>
+            </form>
+        </div>
+        
+        <div class="progress mt-3" style="height: 30px;">
+            <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: {{ progress }};" aria-valuenow="{{ progress|slice:':-1' }}" aria-valuemin="0" aria-valuemax="100">{{ progress }}</div>
+        </div>
+        <div>
+            <p>Download Progress: <span id="progress">{{ progress }}</span></p>
+            <p>Download Speed: <span id="download-speed">{{ speed }}</span></p>
+        </div>
+    </div>
+</body>
+</html>
